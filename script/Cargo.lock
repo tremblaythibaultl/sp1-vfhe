@@ -1758,6 +1758,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vfhe-script"
 version = "0.1.0"
 dependencies = [
+ "rand",
+ "rand_distr",
  "sp1-core",
  "ttfhe",
 ]

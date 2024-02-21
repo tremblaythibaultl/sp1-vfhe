@@ -7,3 +7,5 @@ edition = "2021"
 [dependencies]
 sp1-core = { git = "https://github.com/succinctlabs/sp1.git" }
 ttfhe = { git = "https://github.com/tremblaythibaultl/ttfhe.git", branch = "karatsuba" }
+rand = "0.8.5"
+rand_distr = "0.4.3"

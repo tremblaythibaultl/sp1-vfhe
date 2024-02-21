@@ -1,58 +1,58 @@
 //! A simple script to generate and verify the proof of a given program.
 
+use rand_distr::{Distribution, Normal};
 use sp1_core::{SP1Prover, SP1Stdin, SP1Verifier};
 use std::time::Instant;
 use ttfhe::{
-    ggsw::{compute_bsk, BootstrappingKey},
     glwe::{keygen, GlweCiphertext},
-    lwe::{lwe_keygen, LweCiphertext},
-    utils::encode,
+    utils::decode,
 };
+
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
 fn main() {
-    // Generate proof.
+    let sk = keygen();
 
-    let sk1 = lwe_keygen();
-    let sk2 = keygen();
-    let bsk = compute_bsk(&sk1, &sk2); // list of encryptions under `sk2` of the bits of `sk1`.
+    let msg = 3u8; // should be in 0..16
 
-    let c = LweCiphertext::encrypt(encode(2), &sk1).modswitch(); // "noisy" ciphertext that will be bootstrapped
+    // pick random noise
+    let sigma = f32::powf(2.0, 7.0);
+    let normal = Normal::new(0.0, sigma).unwrap();
+    let e = normal.sample(&mut rand::thread_rng()).round() as i32;
 
-    step_by_step_blind_rotation(&c, &bsk);
-}
+    // start timer
+    let now = Instant::now();
 
-fn step_by_step_blind_rotation(c: &LweCiphertext, bsk: &BootstrappingKey) {
-    let mut c_prime = GlweCiphertext::trivial_encrypt_lut_poly();
+    let mut stdin = SP1Stdin::new();
+    // write secret key, noise and plaintext to VM input
+    stdin.write(&sk);
+    stdin.write(&e);
+    stdin.write(&msg);
 
-    c_prime.body = c_prime.body.multiply_by_monomial((2048 - c.body) as usize);
+    // launch VM proving process
+    println!("Launching VM at {}", now.elapsed().as_millis());
+    let mut proof = SP1Prover::prove(ELF, stdin).expect("proving failed");
 
-    for i in 0..bsk.len() {
-        let now = Instant::now();
+    // read output
+    let ciphertext: GlweCiphertext = proof.stdout.read::<GlweCiphertext>();
+    println!(
+        "Got plaintext: {} at {}",
+        decode(ciphertext.decrypt(&sk)),
+        now.elapsed().as_millis()
+    );
 
-        let mut stdin = SP1Stdin::new();
-        stdin.write(&bsk[i]);
-        stdin.write(&c_prime);
-        stdin.write(&c_prime.rotate(c.mask[i]));
+    // verify proof
+    SP1Verifier::verify(ELF, &proof).expect("verification failed");
 
-        let mut proof = SP1Prover::prove(ELF, stdin).expect("proving failed");
+    println!(
+        "Finished proof verification at {}",
+        now.elapsed().as_millis()
+    );
 
-        // Read output.
-        c_prime = proof.stdout.read::<GlweCiphertext>();
+    // save proof (9.7M)
+    proof
+        .save(&"proof-with-io.json")
+        .expect("saving proof failed");
 
-        // Verify proof.
-        SP1Verifier::verify(ELF, &proof).expect("verification failed");
-
-        // Save proof.
-        proof
-            .save(&format!("proof-with-io_{}.json", i))
-            .expect("saving proof failed");
-
-        println!("succesfully generated and verified proof for the program!");
-
-        println!(
-            "Computed blind rotation step number {i} in {}",
-            now.elapsed().as_secs()
-        );
-    }
+    println!("Completed encryption in {} ms", now.elapsed().as_millis());
 }

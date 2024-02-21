@@ -2,29 +2,33 @@
 sp1_zkvm::entrypoint!(main);
 
 use ttfhe::{
-    ggsw::{cmux, GgswCiphertext},
-    glwe::GlweCiphertext,
+    glwe::{GlweCiphertext, SecretKey},
+    k,
+    poly::ResiduePoly,
+    utils::encode,
 };
 pub fn main() {
-    // let n = sp1_zkvm::io::read::<u32>();
-    // let mut a = 0;
-    // let mut b = 1;
-    // let mut sum;
-    // for _ in 1..n {
-    //     sum = a + b;
-    //     a = b;
-    //     b = sum;
-    // }
-    // sp1_zkvm::io::write(&a);
-    // sp1_zkvm::io::write(&b);
+    let sk = sp1_zkvm::io::read::<SecretKey>();
+    let e = sp1_zkvm::io::read::<i32>();
+    let msg = sp1_zkvm::io::read::<u8>();
 
-    //let (bsk_i, c_prime, c_prime_rotated): (GgswCiphertext, GlweCiphertext, GlweCiphertext) = env::read();
+    assert!(msg < 15);
+    assert!(e.abs() < 100000);
 
-    let bsk_i = sp1_zkvm::io::read::<GgswCiphertext>();
-    let c_prime = sp1_zkvm::io::read::<GlweCiphertext>();
-    let c_prime_rotated = sp1_zkvm::io::read::<GlweCiphertext>();
+    let mu = encode(msg);
 
-    let res = cmux(&bsk_i, &c_prime, &c_prime_rotated);
+    let mu_star: u32 = mu.wrapping_add_signed(e);
 
-    sp1_zkvm::io::write(&res);
+    let mask: Vec<ResiduePoly> = (0..k).map(|_| ResiduePoly::get_random()).collect();
+
+    let mut body = ResiduePoly::default();
+    for i in 0..k {
+        body.add_assign(&mask[i].mul(&sk.polys[i]));
+    }
+
+    body.add_constant_assign(mu_star as u32);
+
+    let c = GlweCiphertext { mask, body };
+
+    sp1_zkvm::io::write(&c);
 }
