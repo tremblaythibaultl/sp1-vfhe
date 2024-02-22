@@ -26,7 +26,7 @@ pub fn main() {
         body.add_assign(&mask[i].mul(&sk.polys[i]));
     }
 
-    body.add_constant_assign(mu_star as u32);
+    body.add_constant_assign(mu_star);
 
     let c = GlweCiphertext { mask, body };
 
