@@ -2,29 +2,18 @@
 sp1_zkvm::entrypoint!(main);
 
 use ttfhe::{
-    ggsw::{cmux, GgswCiphertext},
-    glwe::GlweCiphertext,
+    ggsw::BootstrappingKey,
+    glwe::GlweCiphertext, lwe::LweCiphertext,
 };
 pub fn main() {
-    // let n = sp1_zkvm::io::read::<u32>();
-    // let mut a = 0;
-    // let mut b = 1;
-    // let mut sum;
-    // for _ in 1..n {
-    //     sum = a + b;
-    //     a = b;
-    //     b = sum;
-    // }
-    // sp1_zkvm::io::write(&a);
-    // sp1_zkvm::io::write(&b);
+    let c = sp1_zkvm::io::read::<LweCiphertext>();
+    let bsk = sp1_zkvm::io::read::<BootstrappingKey>();
 
-    //let (bsk_i, c_prime, c_prime_rotated): (GgswCiphertext, GlweCiphertext, GlweCiphertext) = env::read();
+    let lut = GlweCiphertext::trivial_encrypt_lut_poly();
 
-    let bsk_i = sp1_zkvm::io::read::<GgswCiphertext>();
-    let c_prime = sp1_zkvm::io::read::<GlweCiphertext>();
-    let c_prime_rotated = sp1_zkvm::io::read::<GlweCiphertext>();
+    let blind_rotated_lut = lut.blind_rotate(c, &bsk);
 
-    let res = cmux(&bsk_i, &c_prime, &c_prime_rotated);
+    let res_ct = blind_rotated_lut.sample_extract();
 
-    sp1_zkvm::io::write(&res);
+    sp1_zkvm::io::write(&res_ct);
 }
