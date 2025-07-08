@@ -26,3 +26,8 @@ $ cargo prove build
 $ cd ../script 
 $ RUST_LOG=info cargo run --release -- --execute
 ```
+
+#### WARNING
+The results presented in the paper were obtained by running the zkVM on a `hpc7a.96xlarge` AWS EC2 instance with 192 CPU cores and 768 GB memory. 
+
+zkVMs are notoriously resource-hungry. As such, we do not guarantee the reproducibility of our results on less powerful machines. In fact, trying to execute this prototype on a machine with insufficient resources will likely result in a "killed" process.
