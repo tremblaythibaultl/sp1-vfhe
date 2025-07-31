@@ -11,8 +11,7 @@ use ttfhe::{
 const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
 fn main() {
-    // Generate proof.
-
+    // Generate key material
     let sk1 = lwe_keygen();
     let sk2 = keygen();
     let bsk = compute_bsk(&sk1, &sk2); // list of encryptions under `sk2` of the bits of `sk1`.
@@ -25,16 +24,19 @@ fn main() {
 fn step_by_step_blind_rotation(c: &LweCiphertext, bsk: &BootstrappingKey) {
     let mut c_prime = GlweCiphertext::trivial_encrypt_lut_poly();
 
+    // multiply by X^-b over the polynomial ring
     c_prime.body = c_prime.body.multiply_by_monomial((2048 - c.body) as usize);
 
     for i in 0..bsk.len() {
         let now = Instant::now();
 
+        // Write the inputs to the environment.
         let mut stdin = SP1Stdin::new();
         stdin.write(&bsk[i]);
         stdin.write(&c_prime);
         stdin.write(&c_prime.rotate(c.mask[i]));
 
+        // Generate the proof.
         let mut proof = SP1Prover::prove(ELF, stdin).expect("proving failed");
 
         // Read output.
@@ -51,7 +53,7 @@ fn step_by_step_blind_rotation(c: &LweCiphertext, bsk: &BootstrappingKey) {
         println!("succesfully generated and verified proof for the program!");
 
         println!(
-            "Computed blind rotation step number {i} in {}",
+            "Computed blind rotation step number {i} in {} seconds",
             now.elapsed().as_secs()
         );
     }
